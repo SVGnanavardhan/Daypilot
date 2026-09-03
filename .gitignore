@@ -1,0 +1,12 @@
+.env
+.env.*
+*.jks
+*.keystore
+key.properties
+service-account*.json
+google-services.json   # private Firebase config policy batti decide cheyyali
+.dart_tool/
+build/
+.idea/
+.vscode/
+node_modules/
