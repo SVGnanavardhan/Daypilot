@@ -402,6 +402,7 @@ class DashboardScreen extends ConsumerWidget {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'dashboard_fab',
         onPressed: () {
           context.go('/tasks');
         },

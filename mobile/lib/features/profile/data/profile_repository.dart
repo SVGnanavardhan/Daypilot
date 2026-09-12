@@ -20,10 +20,23 @@ class ProfileRepository {
 
   String? get _userId => _supabase.auth.currentUser?.id;
 
+  String _requireUserId() {
+    final userId = _userId;
+
+    if (userId == null || userId.isEmpty) {
+      throw const AppAuthException(
+        message: 'You must be logged in to access your profile.',
+        code: 'NO_USER',
+      );
+    }
+
+    return userId;
+  }
+
   Future<Map<String, dynamic>?> getProfile() async {
     final userId = _userId;
 
-    if (userId == null) {
+    if (userId == null || userId.isEmpty) {
       return null;
     }
 
@@ -39,6 +52,16 @@ class ProfileRepository {
       throw ServerException(
         message: error.message,
         code: error.code,
+        originalError: error,
+      );
+    } catch (error) {
+      if (error is ServerException) {
+        rethrow;
+      }
+
+      throw ServerException(
+        message: 'Unable to load your profile.',
+        code: 'PROFILE_LOAD_FAILED',
         originalError: error,
       );
     }
@@ -57,19 +80,23 @@ class ProfileRepository {
     required String sleepTime,
     required int preferredStudyMinutes,
   }) async {
-    final userId = _userId;
+    final userId = _requireUserId();
 
-    if (userId == null) {
-      throw const AppAuthException(
-        message: 'You must be logged in to save your profile.',
-        code: 'NO_USER',
-      );
-    }
+    final trimmedName = name.trim();
 
-    if (name.trim().isEmpty) {
+    if (trimmedName.isEmpty) {
       throw const ValidationException(
         message: 'Name cannot be empty.',
         code: 'INVALID_NAME',
+      );
+    }
+
+    if (preferredStudyMinutes < 15 ||
+        preferredStudyMinutes > 120) {
+      throw const ValidationException(
+        message:
+            'Preferred study session must be between 15 and 120 minutes.',
+        code: 'INVALID_STUDY_DURATION',
       );
     }
 
@@ -77,7 +104,7 @@ class ProfileRepository {
       await _supabase.from('profiles').upsert(
         {
           'id': userId,
-          'name': name.trim(),
+          'name': trimmedName,
           'institution': institution.trim(),
           'course': course.trim(),
           'department': department.trim(),
@@ -96,6 +123,18 @@ class ProfileRepository {
       throw ServerException(
         message: error.message,
         code: error.code,
+        originalError: error,
+      );
+    } catch (error) {
+      if (error is AppAuthException ||
+          error is ValidationException ||
+          error is ServerException) {
+        rethrow;
+      }
+
+      throw ServerException(
+        message: 'Unable to save your profile.',
+        code: 'PROFILE_SAVE_FAILED',
         originalError: error,
       );
     }

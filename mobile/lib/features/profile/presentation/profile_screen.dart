@@ -9,7 +9,8 @@ class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+  ConsumerState<ProfileScreen> createState() =>
+      _ProfileScreenState();
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
@@ -22,10 +23,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _semesterController = TextEditingController();
   final _careerGoalController = TextEditingController();
 
-  TimeOfDay _collegeStart = const TimeOfDay(hour: 9, minute: 0);
-  TimeOfDay _collegeEnd = const TimeOfDay(hour: 16, minute: 0);
-  TimeOfDay _wakeTime = const TimeOfDay(hour: 6, minute: 30);
-  TimeOfDay _sleepTime = const TimeOfDay(hour: 23, minute: 0);
+  TimeOfDay _collegeStart =
+      const TimeOfDay(hour: 9, minute: 0);
+
+  TimeOfDay _collegeEnd =
+      const TimeOfDay(hour: 16, minute: 0);
+
+  TimeOfDay _wakeTime =
+      const TimeOfDay(hour: 6, minute: 30);
+
+  TimeOfDay _sleepTime =
+      const TimeOfDay(hour: 23, minute: 0);
 
   double _studyMinutes = 45;
 
@@ -55,27 +63,66 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     super.dispose();
   }
 
+  void _resetForm() {
+    _nameController.clear();
+    _institutionController.clear();
+    _courseController.clear();
+    _departmentController.clear();
+    _semesterController.clear();
+    _careerGoalController.clear();
+
+    _collegeStart =
+        const TimeOfDay(hour: 9, minute: 0);
+
+    _collegeEnd =
+        const TimeOfDay(hour: 16, minute: 0);
+
+    _wakeTime =
+        const TimeOfDay(hour: 6, minute: 30);
+
+    _sleepTime =
+        const TimeOfDay(hour: 23, minute: 0);
+
+    _studyMinutes = 45;
+  }
+
   Future<void> _loadProfile() async {
-    if (!_loading) {
+    if (mounted && !_loading) {
       setState(() {
         _loading = true;
       });
     }
 
     try {
-      final profile = await ref.read(profileRepositoryProvider).getProfile();
+      final repository =
+          ref.read(profileRepositoryProvider);
+
+      final profile = await repository.getProfile();
 
       if (!mounted) {
         return;
       }
 
+      _resetForm();
+
       if (profile != null) {
-        _nameController.text = profile['name']?.toString() ?? '';
-        _institutionController.text = profile['institution']?.toString() ?? '';
-        _courseController.text = profile['course']?.toString() ?? '';
-        _departmentController.text = profile['department']?.toString() ?? '';
-        _semesterController.text = profile['semester']?.toString() ?? '';
-        _careerGoalController.text = profile['career_goal']?.toString() ?? '';
+        _nameController.text =
+            profile['name']?.toString() ?? '';
+
+        _institutionController.text =
+            profile['institution']?.toString() ?? '';
+
+        _courseController.text =
+            profile['course']?.toString() ?? '';
+
+        _departmentController.text =
+            profile['department']?.toString() ?? '';
+
+        _semesterController.text =
+            profile['semester']?.toString() ?? '';
+
+        _careerGoalController.text =
+            profile['career_goal']?.toString() ?? '';
 
         _collegeStart = _timeFromDb(
           profile['college_start_time']?.toString(),
@@ -97,16 +144,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const TimeOfDay(hour: 23, minute: 0),
         );
 
-        final preferredMinutes = profile['preferred_study_minutes'];
+        final preferredMinutes =
+            profile['preferred_study_minutes'];
 
         final parsedMinutes = double.tryParse(
           preferredMinutes?.toString() ?? '',
         );
 
         if (parsedMinutes != null) {
-          _studyMinutes = parsedMinutes.clamp(15.0, 120.0);
+          _studyMinutes =
+              parsedMinutes.clamp(15.0, 120.0);
         }
       }
+
+      setState(() {});
     } catch (error) {
       if (!mounted) {
         return;
@@ -161,8 +212,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   String _timeToDb(TimeOfDay time) {
-    final hour = time.hour.toString().padLeft(2, '0');
-    final minute = time.minute.toString().padLeft(2, '0');
+    final hour =
+        time.hour.toString().padLeft(2, '0');
+
+    final minute =
+        time.minute.toString().padLeft(2, '0');
 
     return '$hour:$minute:00';
   }
@@ -188,7 +242,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       return;
     }
 
-    onSelected(selected);
+    setState(() {
+      onSelected(selected);
+    });
   }
 
   Future<void> _saveProfile() async {
@@ -220,18 +276,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     });
 
     try {
-      await ref.read(profileRepositoryProvider).saveProfile(
+      await ref
+          .read(profileRepositoryProvider)
+          .saveProfile(
             name: _nameController.text.trim(),
-            institution: _institutionController.text.trim(),
+            institution:
+                _institutionController.text.trim(),
             course: _courseController.text.trim(),
-            department: _departmentController.text.trim(),
-            semester: _semesterController.text.trim(),
-            careerGoal: _careerGoalController.text.trim(),
-            collegeStartTime: _timeToDb(_collegeStart),
-            collegeEndTime: _timeToDb(_collegeEnd),
-            wakeTime: _timeToDb(_wakeTime),
-            sleepTime: _timeToDb(_sleepTime),
-            preferredStudyMinutes: _studyMinutes.round(),
+            department:
+                _departmentController.text.trim(),
+            semester:
+                _semesterController.text.trim(),
+            careerGoal:
+                _careerGoalController.text.trim(),
+            collegeStartTime:
+                _timeToDb(_collegeStart),
+            collegeEndTime:
+                _timeToDb(_collegeEnd),
+            wakeTime:
+                _timeToDb(_wakeTime),
+            sleepTime:
+                _timeToDb(_sleepTime),
+            preferredStudyMinutes:
+                _studyMinutes.round(),
           );
 
       if (!mounted) {
@@ -255,7 +322,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           content: Text(
             'Unable to save profile: $error',
           ),
-          backgroundColor: Theme.of(context).colorScheme.error,
+          backgroundColor:
+              Theme.of(context).colorScheme.error,
         ),
       );
     } finally {
@@ -282,12 +350,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       textInputAction: textInputAction,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: icon == null ? null : Icon(icon),
+        prefixIcon:
+            icon == null ? null : Icon(icon),
         border: const OutlineInputBorder(),
       ),
       validator: requiredField
           ? (value) {
-              if (value == null || value.trim().isEmpty) {
+              if (value == null ||
+                  value.trim().isEmpty) {
                 return 'Please enter $label';
               }
 
@@ -333,198 +403,287 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    if (_loading) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Student Profile'),
-        ),
-        body: const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Student Profile'),
+        title: const Text(
+          'Student Profile',
+        ),
         actions: [
           IconButton(
             tooltip: 'Reload profile',
-            onPressed: _saving ? null : _loadProfile,
-            icon: const Icon(Icons.refresh_rounded),
+            onPressed:
+                _isBusy ? null : _loadProfile,
+            icon: const Icon(
+              Icons.refresh_rounded,
+            ),
           ),
         ],
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Academic Details',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
+
+      // Always-visible profile save button.
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            16,
+            8,
+            16,
+            12,
+          ),
+          child: SizedBox(
+            height: 52,
+            child: FilledButton.icon(
+              onPressed:
+                  _isBusy ? null : _saveProfile,
+              icon: _saving
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child:
+                          CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color:
+                            colorScheme.onPrimary,
                       ),
+                    )
+                  : const Icon(
+                      Icons.save_outlined,
                     ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: _nameController,
-                      label: 'Full Name',
-                      icon: Icons.person_outline,
-                      requiredField: true,
-                      textInputAction: TextInputAction.next,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildTextField(
-                      controller: _institutionController,
-                      label: 'College / Institution',
-                      icon: Icons.school_outlined,
-                      textInputAction: TextInputAction.next,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildTextField(
-                      controller: _courseController,
-                      label: 'Course',
-                      icon: Icons.menu_book_outlined,
-                      textInputAction: TextInputAction.next,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildTextField(
-                      controller: _departmentController,
-                      label: 'Department',
-                      icon: Icons.account_tree_outlined,
-                      textInputAction: TextInputAction.next,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildTextField(
-                      controller: _semesterController,
-                      label: 'Semester',
-                      icon: Icons.timeline_outlined,
-                      textInputAction: TextInputAction.next,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildTextField(
-                      controller: _careerGoalController,
-                      label: 'Career Goal',
-                      icon: Icons.flag_outlined,
-                      maxLines: 2,
-                      textInputAction: TextInputAction.done,
-                    ),
-                    const SizedBox(height: 28),
-                    Text(
-                      'Daily Routine',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildTimeTile(
-                      label: 'College Start',
-                      value: _collegeStart,
-                      icon: Icons.login_rounded,
-                      onChanged: (value) {
-                        setState(() {
-                          _collegeStart = value;
-                        });
-                      },
-                    ),
-                    _buildTimeTile(
-                      label: 'College End',
-                      value: _collegeEnd,
-                      icon: Icons.logout_rounded,
-                      onChanged: (value) {
-                        setState(() {
-                          _collegeEnd = value;
-                        });
-                      },
-                    ),
-                    _buildTimeTile(
-                      label: 'Wake Time',
-                      value: _wakeTime,
-                      icon: Icons.wb_sunny_outlined,
-                      onChanged: (value) {
-                        setState(() {
-                          _wakeTime = value;
-                        });
-                      },
-                    ),
-                    _buildTimeTile(
-                      label: 'Sleep Time',
-                      value: _sleepTime,
-                      icon: Icons.bedtime_outlined,
-                      onChanged: (value) {
-                        setState(() {
-                          _sleepTime = value;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.timer_outlined,
-                          color: colorScheme.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Text('Preferred Study Session'),
-                        ),
-                        Text(
-                          '${_studyMinutes.round()} min',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Slider(
-                      value: _studyMinutes,
-                      min: 15,
-                      max: 120,
-                      divisions: 7,
-                      label: '${_studyMinutes.round()} min',
-                      onChanged: _isBusy
-                          ? null
-                          : (value) {
-                              setState(() {
-                                _studyMinutes = value;
-                              });
-                            },
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      height: 52,
-                      child: FilledButton.icon(
-                        onPressed: _saving ? null : _saveProfile,
-                        icon: _saving
-                            ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: colorScheme.onPrimary,
-                                ),
-                              )
-                            : const Icon(Icons.save_outlined),
-                        label: Text(
-                          _saving ? 'Saving...' : 'Save Profile',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                  ],
-                ),
+              label: Text(
+                _saving
+                    ? 'Saving...'
+                    : 'Save Profile',
               ),
             ),
           ),
         ),
       ),
+
+      body: _loading
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
+          : SafeArea(
+              bottom: false,
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior
+                          .onDrag,
+                  physics:
+                      const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(
+                    16,
+                    16,
+                    16,
+                    32,
+                  ),
+                  children: [
+                    Center(
+                      child: ConstrainedBox(
+                        constraints:
+                            const BoxConstraints(
+                          maxWidth: 600,
+                        ),
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Academic Details',
+                              style: theme
+                                  .textTheme.titleLarge
+                                  ?.copyWith(
+                                fontWeight:
+                                    FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            _buildTextField(
+                              controller:
+                                  _nameController,
+                              label: 'Full Name',
+                              icon:
+                                  Icons.person_outline,
+                              requiredField: true,
+                              textInputAction:
+                                  TextInputAction.next,
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            _buildTextField(
+                              controller:
+                                  _institutionController,
+                              label:
+                                  'College / Institution',
+                              icon:
+                                  Icons.school_outlined,
+                              textInputAction:
+                                  TextInputAction.next,
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            _buildTextField(
+                              controller:
+                                  _courseController,
+                              label: 'Course',
+                              icon: Icons
+                                  .menu_book_outlined,
+                              textInputAction:
+                                  TextInputAction.next,
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            _buildTextField(
+                              controller:
+                                  _departmentController,
+                              label: 'Department',
+                              icon: Icons
+                                  .account_tree_outlined,
+                              textInputAction:
+                                  TextInputAction.next,
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            _buildTextField(
+                              controller:
+                                  _semesterController,
+                              label: 'Semester',
+                              icon: Icons
+                                  .timeline_outlined,
+                              textInputAction:
+                                  TextInputAction.next,
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            _buildTextField(
+                              controller:
+                                  _careerGoalController,
+                              label: 'Career Goal',
+                              icon:
+                                  Icons.flag_outlined,
+                              maxLines: 2,
+                              textInputAction:
+                                  TextInputAction.done,
+                            ),
+
+                            const SizedBox(height: 28),
+
+                            Text(
+                              'Daily Routine',
+                              style: theme
+                                  .textTheme.titleLarge
+                                  ?.copyWith(
+                                fontWeight:
+                                    FontWeight.bold,
+                              ),
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            _buildTimeTile(
+                              label: 'College Start',
+                              value:
+                                  _collegeStart,
+                              icon:
+                                  Icons.login_rounded,
+                              onChanged: (value) {
+                                _collegeStart =
+                                    value;
+                              },
+                            ),
+
+                            _buildTimeTile(
+                              label: 'College End',
+                              value:
+                                  _collegeEnd,
+                              icon:
+                                  Icons.logout_rounded,
+                              onChanged: (value) {
+                                _collegeEnd =
+                                    value;
+                              },
+                            ),
+
+                            _buildTimeTile(
+                              label: 'Wake Time',
+                              value: _wakeTime,
+                              icon: Icons
+                                  .wb_sunny_outlined,
+                              onChanged: (value) {
+                                _wakeTime = value;
+                              },
+                            ),
+
+                            _buildTimeTile(
+                              label: 'Sleep Time',
+                              value: _sleepTime,
+                              icon: Icons
+                                  .bedtime_outlined,
+                              onChanged: (value) {
+                                _sleepTime = value;
+                              },
+                            ),
+
+                            const SizedBox(height: 24),
+
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.timer_outlined,
+                                  color:
+                                      colorScheme.primary,
+                                ),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Text(
+                                    'Preferred Study Session',
+                                  ),
+                                ),
+                                Text(
+                                  '${_studyMinutes.round()} min',
+                                  style:
+                                      const TextStyle(
+                                    fontWeight:
+                                        FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            Slider(
+                              value: _studyMinutes,
+                              min: 15,
+                              max: 120,
+                              divisions: 7,
+                              label:
+                                  '${_studyMinutes.round()} min',
+                              onChanged: _isBusy
+                                  ? null
+                                  : (value) {
+                                      setState(() {
+                                        _studyMinutes =
+                                            value;
+                                      });
+                                    },
+                            ),
+
+                            const SizedBox(height: 24),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 }

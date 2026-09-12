@@ -34,9 +34,7 @@ class SettingsController extends StateNotifier<SettingsState> {
     required SettingsRepository repository,
   })  : _repository = repository,
         super(const SettingsState()) {
-    unawaited(
-      loadSettings(),
-    );
+    unawaited(loadSettings());
   }
 
   final SettingsRepository _repository;
@@ -63,8 +61,9 @@ class SettingsController extends StateNotifier<SettingsState> {
     }
   }
 
-  // ignore: avoid_positional_boolean_parameters
-  Future<void> setNotificationsEnabled(bool value) {
+  Future<void> setNotificationsEnabled({
+    required bool value,
+  }) {
     return _save(
       state.settings.copyWith(
         notificationsEnabled: value,
@@ -72,8 +71,9 @@ class SettingsController extends StateNotifier<SettingsState> {
     );
   }
 
-  // ignore: avoid_positional_boolean_parameters
-  Future<void> setRemindersEnabled(bool value) {
+  Future<void> setRemindersEnabled({
+    required bool value,
+  }) {
     return _save(
       state.settings.copyWith(
         remindersEnabled: value,
@@ -81,8 +81,9 @@ class SettingsController extends StateNotifier<SettingsState> {
     );
   }
 
-  // ignore: avoid_positional_boolean_parameters
-  Future<void> setAiSuggestionsEnabled(bool value) {
+  Future<void> setAiSuggestionsEnabled({
+    required bool value,
+  }) {
     return _save(
       state.settings.copyWith(
         aiSuggestionsEnabled: value,
@@ -90,8 +91,9 @@ class SettingsController extends StateNotifier<SettingsState> {
     );
   }
 
-  // ignore: avoid_positional_boolean_parameters
-  Future<void> setDarkModeEnabled(bool value) {
+  Future<void> setDarkModeEnabled({
+    required bool value,
+  }) {
     return _save(
       state.settings.copyWith(
         darkModeEnabled: value,
@@ -99,31 +101,76 @@ class SettingsController extends StateNotifier<SettingsState> {
     );
   }
 
-  Future<void> _save(AppSettings settings) async {
+  Future<void> setSoundsEnabled({
+    required bool value,
+  }) {
+    return _save(
+      state.settings.copyWith(
+        soundsEnabled: value,
+      ),
+    );
+  }
+
+  Future<void> setHapticsEnabled({
+    required bool value,
+  }) {
+    return _save(
+      state.settings.copyWith(
+        hapticsEnabled: value,
+      ),
+    );
+  }
+
+  Future<void> setLanguage({
+    required String value,
+  }) {
+    return _save(
+      state.settings.copyWith(
+        language: value,
+      ),
+    );
+  }
+
+  Future<void> _save(
+    AppSettings settings,
+  ) async {
+    final previousSettings = state.settings;
+
     state = state.copyWith(
       settings: settings,
       clearError: true,
     );
 
     try {
-      await _repository.saveSettings(settings);
+      await _repository.saveSettings(
+        settings,
+      );
     } catch (error) {
       state = state.copyWith(
+        settings: previousSettings,
         error: error.toString(),
       );
     }
   }
+
+  void clearError() {
+    state = state.copyWith(
+      clearError: true,
+    );
+  }
 }
 
 final settingsRepositoryProvider = Provider<SettingsRepository>(
-  (ref) => InMemorySettingsRepository(),
+  (ref) {
+    return SharedPreferencesSettingsRepository();
+  },
 );
 
 final settingsControllerProvider =
     StateNotifierProvider<SettingsController, SettingsState>(
-  (ref) => SettingsController(
-    repository: ref.watch(
-      settingsRepositoryProvider,
-    ),
-  ),
+  (ref) {
+    return SettingsController(
+      repository: ref.watch(settingsRepositoryProvider),
+    );
+  },
 );

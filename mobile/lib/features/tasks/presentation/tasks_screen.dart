@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_positional_boolean_parameters, cascade_invocations, discarded_futures
+// ignore_for_file: avoid_positional_boolean_parameters, discarded_futures
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,31 +10,6 @@ import 'widgets/task_form_dialog.dart';
 
 class TasksScreen extends ConsumerWidget {
   const TasksScreen({super.key});
-
-  Future<DateTime?> _pickDueDate(
-    BuildContext context, {
-    DateTime? initialDate,
-  }) async {
-    final now = DateTime.now();
-
-    return showDatePicker(
-      context: context,
-      initialDate: initialDate != null &&
-              !initialDate.isBefore(
-                DateTime(now.year, now.month, now.day),
-              )
-          ? initialDate
-          : now,
-      firstDate: DateTime(
-        now.year,
-        now.month,
-        now.day,
-      ),
-      lastDate: now.add(
-        const Duration(days: 3650),
-      ),
-    );
-  }
 
   Future<void> _showAddTaskDialog(
     BuildContext context,
@@ -52,186 +27,17 @@ class TasksScreen extends ConsumerWidget {
     WidgetRef ref,
     Task task,
   ) async {
-    final titleController = TextEditingController(
-      text: task.title,
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return _EditTaskDialog(
+          task: task,
+          repository: ref.read(
+            taskRepositoryProvider,
+          ),
+        );
+      },
     );
-
-    final descriptionController = TextEditingController(
-      text: task.description ?? '',
-    );
-
-    var selectedDueDate = task.dueDate;
-    var isSaving = false;
-
-    try {
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) {
-          return StatefulBuilder(
-            builder: (context, setDialogState) {
-              Future<void> updateTask() async {
-                final title = titleController.text.trim();
-
-                if (title.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Please enter a task title.',
-                      ),
-                    ),
-                  );
-                  return;
-                }
-
-                if (isSaving) {
-                  return;
-                }
-
-                setDialogState(() {
-                  isSaving = true;
-                });
-
-                try {
-                  await ref.read(taskRepositoryProvider).updateTask(
-                        id: task.id,
-                        title: title,
-                        description: _nullableText(
-                          descriptionController.text,
-                        ),
-                        priority: 'Medium',
-                        estimatedDuration: 30,
-                        dueDate: selectedDueDate,
-                      );
-
-                  if (dialogContext.mounted) {
-                    Navigator.of(dialogContext).pop();
-                  }
-                } catch (error) {
-                  if (!dialogContext.mounted) {
-                    return;
-                  }
-
-                  setDialogState(() {
-                    isSaving = false;
-                  });
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Unable to update task: $error',
-                      ),
-                    ),
-                  );
-                }
-              }
-
-              return AlertDialog(
-                title: const Text('Edit Task'),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextField(
-                        controller: titleController,
-                        autofocus: true,
-                        textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          labelText: 'Task Title',
-                          prefixIcon: Icon(
-                            Icons.task_alt_outlined,
-                          ),
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: descriptionController,
-                        maxLines: 3,
-                        decoration: const InputDecoration(
-                          labelText: 'Description',
-                          prefixIcon: Icon(
-                            Icons.notes_rounded,
-                          ),
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(
-                          Icons.calendar_today_outlined,
-                        ),
-                        title: Text(
-                          selectedDueDate == null
-                              ? 'Add Due Date'
-                              : 'Due ${_formatDate(selectedDueDate!)}',
-                        ),
-                        trailing: selectedDueDate == null
-                            ? const Icon(
-                                Icons.chevron_right_rounded,
-                              )
-                            : IconButton(
-                                tooltip: 'Remove due date',
-                                onPressed: isSaving
-                                    ? null
-                                    : () {
-                                        setDialogState(() {
-                                          selectedDueDate = null;
-                                        });
-                                      },
-                                icon: const Icon(
-                                  Icons.close_rounded,
-                                ),
-                              ),
-                        onTap: isSaving
-                            ? null
-                            : () async {
-                                final picked = await _pickDueDate(
-                                  dialogContext,
-                                  initialDate: selectedDueDate,
-                                );
-
-                                if (picked != null) {
-                                  setDialogState(() {
-                                    selectedDueDate = picked;
-                                  });
-                                }
-                              },
-                      ),
-                    ],
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: isSaving
-                        ? null
-                        : () {
-                            Navigator.of(dialogContext).pop();
-                          },
-                    child: const Text('Cancel'),
-                  ),
-                  FilledButton(
-                    onPressed: isSaving ? null : updateTask,
-                    child: isSaving
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Text('Update Task'),
-                  ),
-                ],
-              );
-            },
-          );
-        },
-      );
-    } finally {
-      titleController.dispose();
-      descriptionController.dispose();
-    }
   }
 
   Future<void> _confirmDeleteTask(
@@ -318,8 +124,9 @@ class TasksScreen extends ConsumerWidget {
           return _TasksErrorView(
             message: error.toString(),
             onRetry: () {
-              ref.invalidate(taskSyncProvider);
-              ref.invalidate(tasksStreamProvider);
+              ref
+                ..invalidate(taskSyncProvider)
+                ..invalidate(tasksStreamProvider);
             },
           );
         },
@@ -419,6 +226,7 @@ class TasksScreen extends ConsumerWidget {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'tasks_fab',
         onPressed: () {
           _showAddTaskDialog(context);
         },
@@ -428,6 +236,154 @@ class TasksScreen extends ConsumerWidget {
         label: const Text('Add Task'),
       ),
     );
+  }
+
+  static String _formatDate(
+    DateTime date,
+  ) {
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+
+    return '$day/$month/${date.year}';
+  }
+}
+
+class _EditTaskDialog extends StatefulWidget {
+  const _EditTaskDialog({
+    required this.task,
+    required this.repository,
+  });
+
+  final Task task;
+  final TaskRepository repository;
+
+  @override
+  State<_EditTaskDialog> createState() => _EditTaskDialogState();
+}
+
+class _EditTaskDialogState extends State<_EditTaskDialog> {
+  late final TextEditingController _titleController;
+  late final TextEditingController _descriptionController;
+
+  DateTime? _selectedDueDate;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _titleController = TextEditingController(
+      text: widget.task.title,
+    );
+
+    _descriptionController = TextEditingController(
+      text: widget.task.description ?? '',
+    );
+
+    _selectedDueDate = widget.task.dueDate;
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+
+    super.dispose();
+  }
+
+  Future<void> _pickDueDate() async {
+    if (_isSaving) {
+      return;
+    }
+
+    final now = DateTime.now();
+
+    final today = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    );
+
+    final initialDate =
+        _selectedDueDate != null && !_selectedDueDate!.isBefore(today)
+            ? _selectedDueDate!
+            : today;
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: today,
+      lastDate: now.add(
+        const Duration(days: 3650),
+      ),
+    );
+
+    if (!mounted || picked == null) {
+      return;
+    }
+
+    setState(() {
+      _selectedDueDate = picked;
+    });
+  }
+
+  Future<void> _updateTask() async {
+    final title = _titleController.text.trim();
+
+    if (title.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please enter a task title.',
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    if (_isSaving) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      await widget.repository.updateTask(
+        id: widget.task.id,
+        title: title,
+        description: _nullableText(
+          _descriptionController.text,
+        ),
+        priority: 'Medium',
+        estimatedDuration: 30,
+        dueDate: _selectedDueDate,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).pop();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSaving = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Unable to update task: $error',
+          ),
+        ),
+      );
+    }
   }
 
   static String? _nullableText(
@@ -442,13 +398,102 @@ class TasksScreen extends ConsumerWidget {
     return normalized;
   }
 
-  static String _formatDate(
-    DateTime date,
-  ) {
-    final day = date.day.toString().padLeft(2, '0');
-    final month = date.month.toString().padLeft(2, '0');
-
-    return '$day/$month/${date.year}';
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text(
+        'Edit Task',
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _titleController,
+              autofocus: true,
+              textInputAction: TextInputAction.next,
+              enabled: !_isSaving,
+              decoration: const InputDecoration(
+                labelText: 'Task Title',
+                prefixIcon: Icon(
+                  Icons.task_alt_outlined,
+                ),
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _descriptionController,
+              enabled: !_isSaving,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Description',
+                prefixIcon: Icon(
+                  Icons.notes_rounded,
+                ),
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(
+                Icons.calendar_today_outlined,
+              ),
+              title: Text(
+                _selectedDueDate == null
+                    ? 'Add Due Date'
+                    : 'Due ${TasksScreen._formatDate(_selectedDueDate!)}',
+              ),
+              trailing: _selectedDueDate == null
+                  ? const Icon(
+                      Icons.chevron_right_rounded,
+                    )
+                  : IconButton(
+                      tooltip: 'Remove due date',
+                      onPressed: _isSaving
+                          ? null
+                          : () {
+                              setState(() {
+                                _selectedDueDate = null;
+                              });
+                            },
+                      icon: const Icon(
+                        Icons.close_rounded,
+                      ),
+                    ),
+              onTap: _isSaving ? null : _pickDueDate,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSaving
+              ? null
+              : () {
+                  Navigator.of(context).pop();
+                },
+          child: const Text(
+            'Cancel',
+          ),
+        ),
+        FilledButton(
+          onPressed: _isSaving ? null : _updateTask,
+          child: _isSaving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                  ),
+                )
+              : const Text(
+                  'Update Task',
+                ),
+        ),
+      ],
+    );
   }
 }
 
@@ -469,16 +514,16 @@ class _TaskCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final dueDate = task.dueDate;
+    final now = DateTime.now();
 
-    final isOverdue = dueDate != null &&
-        !task.isCompleted &&
-        dueDate.isBefore(
-          DateTime(
-            DateTime.now().year,
-            DateTime.now().month,
-            DateTime.now().day,
-          ),
-        );
+    final today = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    );
+
+    final isOverdue =
+        dueDate != null && !task.isCompleted && dueDate.isBefore(today);
 
     return Card(
       margin: const EdgeInsets.only(
@@ -513,7 +558,9 @@ class _TaskCard extends StatelessWidget {
           children: [
             if (task.description != null && task.description!.trim().isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.only(
+                  top: 4,
+                ),
                 child: Text(
                   task.description!,
                   maxLines: 2,
@@ -522,7 +569,9 @@ class _TaskCard extends StatelessWidget {
               ),
             if (dueDate != null)
               Padding(
-                padding: const EdgeInsets.only(top: 6),
+                padding: const EdgeInsets.only(
+                  top: 6,
+                ),
                 child: Row(
                   children: [
                     Icon(
@@ -554,10 +603,9 @@ class _TaskCard extends StatelessWidget {
             switch (value) {
               case 'edit':
                 onEdit();
-                break;
+
               case 'delete':
                 onDelete();
-                break;
             }
           },
           itemBuilder: (context) {
@@ -566,7 +614,9 @@ class _TaskCard extends StatelessWidget {
                 value: 'edit',
                 child: Row(
                   children: [
-                    Icon(Icons.edit_outlined),
+                    Icon(
+                      Icons.edit_outlined,
+                    ),
                     SizedBox(width: 8),
                     Text('Edit'),
                   ],
@@ -576,7 +626,9 @@ class _TaskCard extends StatelessWidget {
                 value: 'delete',
                 child: Row(
                   children: [
-                    Icon(Icons.delete_outline),
+                    Icon(
+                      Icons.delete_outline,
+                    ),
                     SizedBox(width: 8),
                     Text('Delete'),
                   ],
@@ -672,7 +724,9 @@ class _TasksErrorView extends StatelessWidget {
               icon: const Icon(
                 Icons.refresh_rounded,
               ),
-              label: const Text('Retry'),
+              label: const Text(
+                'Retry',
+              ),
             ),
           ],
         ),

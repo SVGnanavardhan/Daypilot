@@ -33,11 +33,32 @@ class TaskRepository {
 
   String? get _userId => _supabase.auth.currentUser?.id;
 
+  String _requireUserId() {
+    final userId = _userId;
+
+    if (userId == null || userId.isEmpty) {
+      throw StateError(
+        'A signed-in user is required to access tasks.',
+      );
+    }
+
+    return userId;
+  }
+
   Stream<List<Task>> watchAllTasks() {
+    final userId = _userId;
+
+    if (userId == null) {
+      return Stream.value(const <Task>[]);
+    }
+
     return (_db.select(_db.tasks)
+          ..where(
+            (task) => task.userId.equals(userId),
+          )
           ..orderBy([
-            (t) => OrderingTerm(
-                  expression: t.createdAt,
+            (task) => OrderingTerm(
+                  expression: task.createdAt,
                   mode: OrderingMode.desc,
                 ),
           ]))
@@ -59,8 +80,12 @@ class TaskRepository {
           .isFilter('deleted_at', null)
           .order('created_at');
 
+      final remoteIds = <String>{};
+
       for (final row in rows) {
         final id = row['id'].toString();
+
+        remoteIds.add(id);
 
         final dueAt = row['due_at'] != null
             ? DateTime.tryParse(
@@ -78,14 +103,18 @@ class TaskRepository {
             ) ??
             createdAt;
 
-        final status = row['status']?.toString().toLowerCase();
+        final status =
+            row['status']?.toString().toLowerCase();
 
-        final isCompleted = status == 'done' || row['completed_at'] != null;
+        final isCompleted =
+            status == 'done' || row['completed_at'] != null;
 
         await _db.into(_db.tasks).insertOnConflictUpdate(
               TasksCompanion.insert(
                 id: id,
-                title: row['title']?.toString() ?? 'Untitled Task',
+                userId: userId,
+                title:
+                    row['title']?.toString() ?? 'Untitled Task',
                 description: Value(
                   row['description']?.toString(),
                 ),
@@ -97,7 +126,8 @@ class TaskRepository {
             );
       }
     } catch (_) {
-      // Offline-first: keep local data if cloud sync fails.
+      // Offline-first:
+      // keep this user's local data if cloud sync fails.
     }
   }
 
@@ -109,6 +139,8 @@ class TaskRepository {
     int estimatedDuration = 30,
     DateTime? dueDate,
   }) async {
+    final userId = _requireUserId();
+
     final id = _uuid.v4();
     final now = DateTime.now();
 
@@ -116,6 +148,7 @@ class TaskRepository {
       await _db.into(_db.tasks).insert(
             TasksCompanion.insert(
               id: id,
+              userId: userId,
               title: title,
               description: Value(description),
               dueDate: Value(dueDate),
@@ -126,6 +159,7 @@ class TaskRepository {
 
       final payload = jsonEncode({
         'id': id,
+        'user_id': userId,
         'title': title,
         'description': description,
         'subject': subject,
@@ -138,6 +172,7 @@ class TaskRepository {
 
       await _db.into(_db.syncOutbox).insert(
             SyncOutboxCompanion.insert(
+              userId: userId,
               action: 'CREATE',
               entityType: 'task',
               entityId: id,
@@ -148,6 +183,7 @@ class TaskRepository {
 
     await _pushCreateToSupabase(
       id: id,
+      userId: userId,
       title: title,
       description: description,
       subject: subject,
@@ -181,11 +217,17 @@ class TaskRepository {
     String? subject,
     DateTime? dueDate,
   }) async {
+    final userId = _requireUserId();
     final now = DateTime.now();
-    final userId = _userId;
 
     await _db.transaction(() async {
-      await (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(
+      await (_db.update(_db.tasks)
+            ..where(
+              (task) =>
+                  task.id.equals(id) &
+                  task.userId.equals(userId),
+            ))
+          .write(
         TasksCompanion(
           title: Value(title),
           description: Value(description),
@@ -196,6 +238,7 @@ class TaskRepository {
 
       final payload = jsonEncode({
         'id': id,
+        'user_id': userId,
         'title': title,
         'description': description,
         'subject': subject,
@@ -207,6 +250,7 @@ class TaskRepository {
 
       await _db.into(_db.syncOutbox).insert(
             SyncOutboxCompanion.insert(
+              userId: userId,
               action: 'UPDATE',
               entityType: 'task',
               entityId: id,
@@ -215,22 +259,22 @@ class TaskRepository {
           );
     });
 
-    if (userId != null) {
-      try {
-        await _supabase
-            .from('tasks')
-            .update({
-              'title': title,
-              'description': description,
-              'subject': subject,
-              'priority': priority,
-              'estimated_duration': estimatedDuration,
-              'due_at': dueDate?.toIso8601String(),
-              'updated_at': now.toIso8601String(),
-            })
-            .eq('id', id)
-            .eq('user_id', userId);
-      } catch (_) {}
+    try {
+      await _supabase
+          .from('tasks')
+          .update({
+            'title': title,
+            'description': description,
+            'subject': subject,
+            'priority': priority,
+            'estimated_duration': estimatedDuration,
+            'due_at': dueDate?.toIso8601String(),
+            'updated_at': now.toIso8601String(),
+          })
+          .eq('id', id)
+          .eq('user_id', userId);
+    } catch (_) {
+      // Remains queued locally.
     }
 
     await NotificationService.instance.cancel(
@@ -254,10 +298,17 @@ class TaskRepository {
     String id,
     bool isCompleted,
   ) async {
+    final userId = _requireUserId();
     final now = DateTime.now();
 
     await _db.transaction(() async {
-      await (_db.update(_db.tasks)..where((t) => t.id.equals(id))).write(
+      await (_db.update(_db.tasks)
+            ..where(
+              (task) =>
+                  task.id.equals(id) &
+                  task.userId.equals(userId),
+            ))
+          .write(
         TasksCompanion(
           isCompleted: Value(isCompleted),
           updatedAt: Value(now),
@@ -266,12 +317,14 @@ class TaskRepository {
 
       final payload = jsonEncode({
         'id': id,
+        'user_id': userId,
         'is_completed': isCompleted,
         'updated_at': now.toIso8601String(),
       });
 
       await _db.into(_db.syncOutbox).insert(
             SyncOutboxCompanion.insert(
+              userId: userId,
               action: 'UPDATE',
               entityType: 'task',
               entityId: id,
@@ -282,6 +335,7 @@ class TaskRepository {
 
     await _pushCompletionToSupabase(
       id,
+      userId,
       isCompleted,
       now,
     );
@@ -294,6 +348,7 @@ class TaskRepository {
   }
 
   Future<void> deleteTask(String id) async {
+    final userId = _requireUserId();
     final now = DateTime.now();
 
     await NotificationService.instance.cancel(
@@ -301,15 +356,23 @@ class TaskRepository {
     );
 
     await _db.transaction(() async {
-      await (_db.delete(_db.tasks)..where((t) => t.id.equals(id))).go();
+      await (_db.delete(_db.tasks)
+            ..where(
+              (task) =>
+                  task.id.equals(id) &
+                  task.userId.equals(userId),
+            ))
+          .go();
 
       await _db.into(_db.syncOutbox).insert(
             SyncOutboxCompanion.insert(
+              userId: userId,
               action: 'DELETE',
               entityType: 'task',
               entityId: id,
               payloadJson: jsonEncode({
                 'id': id,
+                'user_id': userId,
                 'deleted_at': now.toIso8601String(),
               }),
             ),
@@ -318,12 +381,14 @@ class TaskRepository {
 
     await _pushDeleteToSupabase(
       id,
+      userId,
       now,
     );
   }
 
   Future<void> _pushCreateToSupabase({
     required String id,
+    required String userId,
     required String title,
     required DateTime now,
     String? description,
@@ -332,12 +397,6 @@ class TaskRepository {
     int estimatedDuration = 30,
     DateTime? dueDate,
   }) async {
-    final userId = _userId;
-
-    if (userId == null) {
-      return;
-    }
-
     try {
       await _supabase.from('tasks').upsert({
         'id': id,
@@ -360,22 +419,18 @@ class TaskRepository {
 
   Future<void> _pushCompletionToSupabase(
     String id,
+    String userId,
     bool isCompleted,
     DateTime now,
   ) async {
-    final userId = _userId;
-
-    if (userId == null) {
-      return;
-    }
-
     try {
       await _supabase
           .from('tasks')
           .update({
             'status': isCompleted ? 'Done' : 'To Do',
             'progress': isCompleted ? 100 : 0,
-            'completed_at': isCompleted ? now.toIso8601String() : null,
+            'completed_at':
+                isCompleted ? now.toIso8601String() : null,
             'updated_at': now.toIso8601String(),
           })
           .eq('id', id)
@@ -387,14 +442,9 @@ class TaskRepository {
 
   Future<void> _pushDeleteToSupabase(
     String id,
+    String userId,
     DateTime now,
   ) async {
-    final userId = _userId;
-
-    if (userId == null) {
-      return;
-    }
-
     try {
       await _supabase
           .from('tasks')
