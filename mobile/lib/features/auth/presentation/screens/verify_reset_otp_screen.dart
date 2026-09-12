@@ -7,16 +7,21 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/auth_provider.dart';
 
-class EmailVerificationScreen extends ConsumerStatefulWidget {
-  const EmailVerificationScreen({super.key});
+class VerifyResetOtpScreen extends ConsumerStatefulWidget {
+  const VerifyResetOtpScreen({
+    required this.email,
+    super.key,
+  });
+
+  final String email;
 
   @override
-  ConsumerState<EmailVerificationScreen> createState() =>
-      _EmailVerificationScreenState();
+  ConsumerState<VerifyResetOtpScreen> createState() =>
+      _VerifyResetOtpScreenState();
 }
 
-class _EmailVerificationScreenState
-    extends ConsumerState<EmailVerificationScreen> {
+class _VerifyResetOtpScreenState
+    extends ConsumerState<VerifyResetOtpScreen> {
   static const int _otpLength = 8;
 
   final TextEditingController _otpController = TextEditingController();
@@ -24,10 +29,8 @@ class _EmailVerificationScreenState
 
   bool _isVerifying = false;
   bool _isResending = false;
-  bool _isLoggingOut = false;
 
-  bool get _isBusy =>
-      _isVerifying || _isResending || _isLoggingOut;
+  bool get _isBusy => _isVerifying || _isResending;
 
   @override
   void initState() {
@@ -53,6 +56,15 @@ class _EmailVerificationScreenState
     }
 
     final otp = _otpController.text.trim();
+    final email = widget.email.trim();
+
+    if (email.isEmpty) {
+      _showMessage(
+        'Recovery email is unavailable. Start again.',
+        isError: true,
+      );
+      return;
+    }
 
     if (otp.isEmpty) {
       _showMessage(
@@ -81,8 +93,9 @@ class _EmailVerificationScreenState
     });
 
     final success =
-        await ref.read(authProvider.notifier).verifyOtp(
-              otp,
+        await ref.read(authProvider.notifier).verifyPasswordResetOtp(
+              email: email,
+              otp: otp,
             );
 
     if (!mounted) {
@@ -109,27 +122,38 @@ class _EmailVerificationScreenState
       return;
     }
 
-    if (authState.status == AuthStatus.authenticated) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Email verified successfully.',
-          ),
-        ),
+    if (authState.status != AuthStatus.passwordRecovery) {
+      _showMessage(
+        'Unable to start password recovery. Please try again.',
+        isError: true,
       );
 
-      context.go('/dashboard');
       return;
     }
 
-    _showMessage(
-      'Unable to verify OTP. Please try again.',
-      isError: true,
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'OTP verified successfully.',
+        ),
+      ),
     );
+
+    context.go('/reset-password');
   }
 
   Future<void> _resendOtp() async {
     if (_isBusy) {
+      return;
+    }
+
+    final email = widget.email.trim();
+
+    if (email.isEmpty) {
+      _showMessage(
+        'Recovery email is unavailable. Start again.',
+        isError: true,
+      );
       return;
     }
 
@@ -140,7 +164,9 @@ class _EmailVerificationScreenState
     });
 
     final success =
-        await ref.read(authProvider.notifier).resendOtp();
+        await ref.read(authProvider.notifier).sendPasswordResetOtp(
+              email: email,
+            );
 
     if (!mounted) {
       return;
@@ -169,42 +195,6 @@ class _EmailVerificationScreenState
     _showMessage(
       'A new $_otpLength-digit OTP has been sent to your email.',
     );
-  }
-
-  Future<void> _handleLogout() async {
-    if (_isBusy) {
-      return;
-    }
-
-    FocusScope.of(context).unfocus();
-
-    setState(() {
-      _isLoggingOut = true;
-    });
-
-    await ref.read(authProvider.notifier).logout();
-
-    if (!mounted) {
-      return;
-    }
-
-    final authState = ref.read(authProvider);
-
-    if (authState.error != null) {
-      setState(() {
-        _isLoggingOut = false;
-      });
-
-      _showMessage(
-        authState.error!.message,
-        isError: true,
-      );
-
-      ref.read(authProvider.notifier).clearError();
-      return;
-    }
-
-    context.go('/login');
   }
 
   void _showMessage(
@@ -262,46 +252,18 @@ class _EmailVerificationScreenState
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
-
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final email =
-        authState.verificationEmail ??
-        authState.user?.email ??
-        '';
+    final email = widget.email.trim();
 
     return PopScope(
       canPop: !_isBusy,
       child: Scaffold(
         appBar: AppBar(
           title: const Text(
-            'Verify Email',
+            'Verify Reset OTP',
           ),
-          actions: [
-            IconButton(
-              tooltip: 'Logout',
-              onPressed: _isBusy
-                  ? null
-                  : () {
-                      unawaited(
-                        _handleLogout(),
-                      );
-                    },
-              icon: _isLoggingOut
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Icon(
-                      Icons.logout_rounded,
-                    ),
-            ),
-          ],
         ),
         body: SafeArea(
           child: Center(
@@ -316,13 +278,13 @@ class _EmailVerificationScreenState
                       CrossAxisAlignment.stretch,
                   children: [
                     Icon(
-                      Icons.mark_email_unread_rounded,
-                      size: 92,
+                      Icons.password_rounded,
+                      size: 88,
                       color: colorScheme.primary,
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      'Verify Your Email',
+                      'Verify OTP',
                       textAlign: TextAlign.center,
                       style:
                           theme.textTheme.headlineSmall
@@ -332,7 +294,7 @@ class _EmailVerificationScreenState
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Enter the $_otpLength-digit OTP sent to your email address.',
+                      'Enter the $_otpLength-digit OTP sent to your registered email address.',
                       textAlign: TextAlign.center,
                       style:
                           theme.textTheme.bodyMedium
@@ -362,8 +324,7 @@ class _EmailVerificationScreenState
                             Icon(
                               Icons.email_outlined,
                               size: 20,
-                              color:
-                                  colorScheme.primary,
+                              color: colorScheme.primary,
                             ),
                             const SizedBox(width: 8),
                             Flexible(
@@ -414,10 +375,10 @@ class _EmailVerificationScreenState
                       ),
                       decoration: InputDecoration(
                         counterText: '',
+                        labelText: 'OTP',
                         hintText: '00000000',
-                        labelText: 'Verification OTP',
                         prefixIcon: const Icon(
-                          Icons.password_rounded,
+                          Icons.pin_outlined,
                         ),
                         border: OutlineInputBorder(
                           borderRadius:
@@ -432,7 +393,7 @@ class _EmailVerificationScreenState
                         }
                       },
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 22),
                     SizedBox(
                       height: 52,
                       child: FilledButton.icon(
@@ -445,8 +406,8 @@ class _EmailVerificationScreenState
                                 child:
                                     CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: colorScheme
-                                      .onPrimary,
+                                  color:
+                                      colorScheme.onPrimary,
                                 ),
                               )
                             : const Icon(
@@ -484,31 +445,28 @@ class _EmailVerificationScreenState
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment:
-                          MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.info_outline_rounded,
-                          size: 17,
-                          color:
-                              colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            'Use the latest OTP sent to your email.',
-                            textAlign: TextAlign.center,
-                            style: theme
-                                .textTheme.bodySmall
-                                ?.copyWith(
-                              color: colorScheme
-                                  .onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 16),
+                    TextButton.icon(
+                      onPressed: _isBusy
+                          ? null
+                          : () {
+                              ref
+                                  .read(
+                                    authProvider.notifier,
+                                  )
+                                  .cancelPasswordRecovery();
+
+                              context.go(
+                                '/forgot-password',
+                              );
+                            },
+                      icon: const Icon(
+                        Icons.arrow_back_rounded,
+                        size: 20,
+                      ),
+                      label: const Text(
+                        'Change Email',
+                      ),
                     ),
                   ],
                 ),

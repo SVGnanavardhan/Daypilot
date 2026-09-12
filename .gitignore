@@ -1,12 +1,175 @@
+# =========================================================
+# DayPilot - Root .gitignore
+# =========================================================
+
+# ---------------------------------------------------------
+# OS / System files
+# ---------------------------------------------------------
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# ---------------------------------------------------------
+# IDE / Editor
+# ---------------------------------------------------------
+.idea/
+**/.idea/
+.vscode/
+**/.vscode/
+*.iml
+*.ipr
+*.iws
+
+# ---------------------------------------------------------
+# Environment variables / Secrets
+# ---------------------------------------------------------
 .env
 .env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+*.pem
+*.p12
+*.pfx
 *.jks
 *.keystore
+
 key.properties
+**/key.properties
+
+# Android local SDK path
+local.properties
+**/local.properties
+
+# Service account / private credentials
 service-account*.json
-google-services.json   # private Firebase config policy batti decide cheyyali
-.dart_tool/
-build/
-.idea/
-.vscode/
-node_modules/
+**/service-account*.json
+credentials.json
+**/credentials.json
+
+# ---------------------------------------------------------
+# Logs / Temporary files
+# ---------------------------------------------------------
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+flutter_run_log.txt
+task_runtime_log.txt
+**/flutter_run_log.txt
+**/task_runtime_log.txt
+
+# Local project tree/debug dumps
+/tree.txt
+**/tree.txt
+
+# ---------------------------------------------------------
+# Flutter / Dart
+# ---------------------------------------------------------
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/.pub/
+**/.pub-cache/
+
+**/build/
+**/coverage/
+
+# Flutter platform generated / ephemeral files
+**/ios/Flutter/ephemeral/
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+
+**/macos/Flutter/ephemeral/
+
+**/windows/flutter/ephemeral/
+**/linux/flutter/ephemeral/
+
+# ---------------------------------------------------------
+# Android / Gradle / Kotlin
+# ---------------------------------------------------------
+**/.gradle/
+**/.kotlin/
+**/captures/
+**/android/app/debug/
+**/android/app/profile/
+**/android/app/release/
+
+# Native build cache
+**/.cxx/
+**/cmake-build-*/
+
+# ---------------------------------------------------------
+# Build artifacts
+# ---------------------------------------------------------
+/.dist/
+**/dist/
+
+*.apk
+*.aab
+*.ipa
+
+# ---------------------------------------------------------
+# Node / JavaScript / Backend
+# ---------------------------------------------------------
+**/node_modules/
+**/.npm/
+**/.pnpm-store/
+**/.yarn/cache/
+
+**/.next/
+**/.nuxt/
+**/.vite/
+**/.parcel-cache/
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------------------------------------------------------
+# Python Backend
+# ---------------------------------------------------------
+**/__pycache__/
+**/*.py[cod]
+**/.venv/
+**/venv/
+**/env/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+
+# ---------------------------------------------------------
+# Local databases
+# ---------------------------------------------------------
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# ---------------------------------------------------------
+# Xcode / Apple
+# ---------------------------------------------------------
+**/Pods/
+**/.symlinks/
+**/DerivedData/
+**/xcuserdata/
+*.xcuserstate
+
+# ---------------------------------------------------------
+# Misc caches
+# ---------------------------------------------------------
+.cache/
+**/.cache/
+.tmp/
+**/.tmp/
+tree.txt
